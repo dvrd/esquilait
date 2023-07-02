@@ -1,11 +1,14 @@
 use std::num::NonZeroU64;
 
-use super::{
-    pages::Page,
-    records::{Value, RecordCode}, varint,
-};
-use nom::{number::complete::be_u16, multi::many1, combinator::into};
 use nom::IResult;
+use nom::{combinator::into, multi::many1, number::complete::be_u16};
+
+use crate::sqlite::pages::Page;
+
+use super::{
+    records::{RecordCode, Value},
+    varint::varint,
+};
 
 #[derive(Clone, Copy, PartialEq)]
 /// Contains the payload part of the [Cell].
@@ -61,7 +64,9 @@ impl<'a> Cell<'a> {
     pub fn next_page(&self) -> Option<NonZeroU64> {
         match self {
             Cell::TableLeaf { .. } => None,
-            Cell::TableInterior { left_child_page, .. } => Some(NonZeroU64::new(*left_child_page as u64)?),
+            Cell::TableInterior {
+                left_child_page, ..
+            } => Some(NonZeroU64::new(*left_child_page as u64)?),
             Cell::IndexLeaf { .. } => None,
             Cell::IndexInterior {
                 left_child_page, ..

@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use super::{
-    records::Value,
-    tables::{CellType, Column, Table},
-};
+use crate::sqlite::tables::{CellType, Column, Table};
+
+use super::records::Value;
 
 #[derive(Debug, PartialEq)]
 pub enum SelectColumns {
@@ -181,8 +180,12 @@ peg::parser! {
 }
 
 pub fn create_idx_sql(s: &str) -> Result<(String, String), anyhow::Error> {
-    let create = sql::create_idx(s)
-        .or_else(|e| Err(anyhow::anyhow!("Failed to parse create idx statement: {:?}", e)))?;
+    let create = sql::create_idx(s).or_else(|e| {
+        Err(anyhow::anyhow!(
+            "Failed to parse create idx statement: {:?}",
+            e
+        ))
+    })?;
     Ok(create)
 }
 

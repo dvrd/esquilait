@@ -1,22 +1,16 @@
-use std::fmt::Display;
 use nom::{
     bytes::complete::take,
     number::complete::{be_f64, be_i16, be_i24, be_i32, be_i64, i8},
     IResult,
 };
+use std::fmt::Display;
 
-/// Record from an SQLite database.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
-    /// `NULL` value
     Null,
-    /// Integer value
     Integer(i64),
-    /// Floating point value
     Float(f64),
-    /// `BLOB` value (binary data)
     Blob(Vec<u8>),
-    /// `TEXT` value (unicode text)
     Text(String),
 }
 
@@ -141,4 +135,3 @@ impl<'a> RecordCode {
         }
     }
 }
-

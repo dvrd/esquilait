@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use std::str::FromStr;
 
-use super::Row;
+use super::db::Row;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SchemaType {
@@ -36,9 +36,7 @@ pub struct Schema {
 
 impl Schema {
     pub fn new(row: Row) -> Result<Self> {
-        let stype = row[0]
-            .to_string()
-            .parse()?;
+        let stype = row[0].to_string().parse()?;
         let name = row[1].to_string();
         let table_name = row[2].to_string();
         let rootpage = u64::from(row[3].clone());

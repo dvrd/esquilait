@@ -1,7 +1,3 @@
-use super::{
-    cells::{Cell, CellIter, Payload},
-    varint::varint,
-};
 use anyhow::{bail, Error};
 use nom::{
     bytes::complete::take,
@@ -11,6 +7,11 @@ use nom::{
     IResult,
 };
 use std::ops::Deref;
+
+use crate::parsers::{
+    cells::{Cell, CellIter, Payload},
+    varint::varint,
+};
 
 #[derive(Debug, Clone)]
 pub struct Page {
@@ -94,6 +95,39 @@ pub struct BtreeHeader {
 }
 
 impl<'a> BtreeHeader {
+    pub fn new(input: &[u8]) -> IResult<&[u8], BtreeHeader> {
+        let (
+            input,
+            (
+                kind,
+                first_freeblock,
+                cell_count,
+                cell_contents,
+                fragmented_free_bytes,
+                rightmost_pointer,
+            ),
+        ) = tuple((
+            map_res(u8, |n| PageKind::try_from(n)),
+            be_u16,
+            be_u16,
+            be_u16,
+            u8,
+            be_u32,
+        ))(input)?;
+        let rightmost_pointer = kind.is_interior().then_some(rightmost_pointer);
+        Ok((
+            input,
+            BtreeHeader {
+                kind,
+                first_freeblock,
+                cell_count,
+                cell_contents,
+                fragmented_free_bytes,
+                rightmost_pointer,
+            },
+        ))
+    }
+
     /// Parse a cell based on the type of Btree.
     pub fn parse_cell(&'a self, input: &'a [u8]) -> IResult<&[u8], Cell<'a>> {
         match self.kind {
@@ -148,37 +182,4 @@ impl<'a> BtreeHeader {
             }
         }
     }
-}
-
-pub fn parse_btree_header(input: &[u8]) -> IResult<&[u8], BtreeHeader> {
-    let (
-        input,
-        (
-            kind,
-            first_freeblock,
-            cell_count,
-            cell_contents,
-            fragmented_free_bytes,
-            rightmost_pointer,
-        ),
-    ) = tuple((
-        map_res(u8, |n| PageKind::try_from(n)),
-        be_u16,
-        be_u16,
-        be_u16,
-        u8,
-        be_u32,
-    ))(input)?;
-    let rightmost_pointer = kind.is_interior().then_some(rightmost_pointer);
-    Ok((
-        input,
-        BtreeHeader {
-            kind,
-            first_freeblock,
-            cell_count,
-            cell_contents,
-            fragmented_free_bytes,
-            rightmost_pointer,
-        },
-    ))
 }

@@ -1,11 +1,10 @@
-use std::{collections::HashMap, str::FromStr};
 use anyhow::Error;
 use itertools::Itertools;
+use std::{collections::HashMap, str::FromStr};
 
-use super::{
-    parser::{self, Select, SelectColumns},
-    schemas::Schema,
-};
+use crate::parsers::sql::{create_sql, Select, SelectColumns};
+
+use super::schemas::Schema;
 
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord)]
 pub enum CellType {
@@ -71,7 +70,6 @@ impl TryFrom<&Schema> for Table {
 impl FromStr for Table {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        parser::create_sql(s)
+        create_sql(s)
     }
 }
-

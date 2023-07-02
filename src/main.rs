@@ -1,14 +1,15 @@
+mod parsers;
 mod sqlite;
 
 use anyhow::{bail, Result};
 use std::fs::File;
 use std::num::NonZeroU64;
 
+use parsers::sql::{create_idx_sql, Condition, Select, SelectColumns};
 use sqlite::{
-    parser::{self, SelectColumns},
+    db::{Database, Search},
     schemas::{Schema, SchemaType},
     tables::Table,
-    Database, Search,
 };
 
 fn main() -> Result<()> {
@@ -35,14 +36,14 @@ fn main() -> Result<()> {
                 .map(|s| s.name.clone())
                 .collect::<Vec<String>>()
                 .join(" ");
-            print!("{}", names);
+            println!("{}", names);
         }
         ".schemas" => {
             let schemas = db.get_schemas_vec();
             println!("{:#?}", schemas);
         }
         query => {
-            let stmt: parser::Select = query.parse()?;
+            let stmt: Select = query.parse()?;
             let schemas = db.get_schemas();
             let (schema, table): (&Schema, Table) = match schemas.get(&stmt.name) {
                 Some(s) => (s, s.try_into()?),
@@ -52,15 +53,15 @@ fn main() -> Result<()> {
 
             let (table_index, search_key) = if let Some(cond) = &stmt.cond {
                 match cond {
-                    parser::Condition::Eq(col_name, search_key) => {
-                        let indexable_col = table.columns.get(&col_name.clone()).unwrap();
+                    Condition::Eq(col_name, search_key) => {
+                        let indexable_col = table.columns.get(col_name).unwrap();
                         let index = schemas
                             .iter()
                             .filter(|(_, s)| {
                                 s.stype == SchemaType::Index && s.table_name == stmt.name
                             })
                             .find(|(_, s)| {
-                                let column = match parser::create_idx_sql(&s.sql) {
+                                let column = match create_idx_sql(&s.sql) {
                                     Ok((_, column)) => column,
                                     Err(_) => return false,
                                 };
@@ -69,7 +70,7 @@ fn main() -> Result<()> {
                             .map(|(_, s)| s.rootpage);
 
                         let search_key = match index {
-                            Some(_) => Some(search_key),
+                            Some(_) => Some(search_key.to_owned()),
                             None => None,
                         };
 
@@ -98,10 +99,10 @@ fn main() -> Result<()> {
 
                     let table_search = Search {
                         pgno,
-                        key: search_key.cloned(),
+                        key: search_key,
                         indeces: None,
-                        schema: schema.clone(),
-                        cond: stmt.cond.clone(),
+                        schema: schema.to_owned(),
+                        cond: stmt.cond,
                     };
 
                     let rows = db.rows(table_search);

@@ -3,7 +3,7 @@
 # Sqlite Clone in Rust 🦀
 This project is meant to be a two pronged approach at learning Rust with an actual project, practicing actual CS by having to learn how to manipulate low level logic and applying some algorithms that my frontend carreer haven't really require me to do. Thanks to [codecrafters](https://app.codecrafters.io/courses/sqlite?track=rust) Sqlite track for the guidance.
 
-![Screen Recording 2023-06-26 at 10 47 17](https://github.com/dvrd/esquilait/assets/126793278/87496978-522e-4b57-bfc8-2798009f0312)
+![example](./out.gif)
 
 ## Features 🏗️
 - [x] .dbinfo
