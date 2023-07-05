@@ -5,7 +5,7 @@ use crate::{
     sqlite::{
         db::Row,
         schemas::{Schema, SchemaType},
-        tables::Table,
+        tables::{Column, Table},
     },
 };
 
@@ -45,13 +45,21 @@ pub fn find_table_index(
     }
 }
 
-pub fn print_rows(rows: Vec<Row>, indices: Vec<usize>) {
+pub fn print_rows(rows: Vec<Row>, columns: Vec<Column>) {
+    println!(
+        "{}",
+        columns
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect::<Vec<&str>>()
+            .join("|")
+    );
     for row in rows {
         println!(
             "{}",
-            indices
+            columns
                 .iter()
-                .map(|&i| row[i].to_string())
+                .map(|c| row[c.idx].to_string())
                 .collect::<Vec<String>>()
                 .join("|")
         );

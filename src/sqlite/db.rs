@@ -15,7 +15,11 @@ use super::{
     schemas::Schema,
     tables::Table,
 };
-use crate::parsers::{cells::Cell, records::Value, sql::Condition};
+use crate::parsers::{
+    cells::{self, Cell},
+    records::Value,
+    sql::Condition,
+};
 
 pub type Row = Vec<Value>;
 
@@ -101,32 +105,35 @@ impl Database {
         match self.get_page(search.pgno) {
             Ok(page) => match &page.header.kind {
                 PageKind::TableInterior => {
-                    let rightmost_pointer =
-                        NonZeroU64::new(page.header.rightmost_pointer.unwrap().into()).unwrap();
+                    let mut rows: Vec<Row> = vec![];
 
-                    let mut rows: Vec<Row> = page
-                        .cells()
-                        .flat_map(|cell| {
-                            match cell.next_page().map(|pgno| search.next_page(pgno)) {
-                                Some(next_search) => {
-                                    if let Some(indeces) = &search.indeces {
-                                        match cell {
-                                            Cell::TableInterior { row_id, .. } => {
+                    let cells = page.cells();
+
+                    if let Some(rightmost_pointer) = page.header.rightmost_pointer {
+                        if let Some(rightmost_pointer) = NonZeroU64::new(rightmost_pointer.into()) {
+                            rows.extend(self.rows(search.next_page(rightmost_pointer)));
+                        }
+                    }
+
+                    if rows.len() == 0 {
+                        for cell in page.cells() {
+                            let cell_rows =
+                                match cell.next_page().map(|pgno| search.next_page(pgno)) {
+                                    Some(next_search) => {
+                                        if let Some(indeces) = &search.indeces {
+                                            if let Cell::TableInterior { row_id, .. } = cell {
                                                 if indeces.binary_search(&row_id).is_ok() {
                                                     return self.rows(next_search);
                                                 }
                                             }
-                                            _ => return vec![],
                                         }
+                                        self.rows(next_search)
                                     }
-                                    self.rows(next_search)
-                                }
-                                None => vec![],
-                            }
-                        })
-                        .collect();
-
-                    rows.extend(self.rows(search.next_page(rightmost_pointer)));
+                                    None => vec![],
+                                };
+                            rows.extend(cell_rows);
+                        }
+                    }
 
                     rows
                 }
@@ -141,8 +148,14 @@ impl Database {
                     let mut left_key: Option<String> = None;
 
                     for cell in page.cells() {
-                        let row = TryInto::<Row>::try_into(cell).unwrap();
-                        let row_key = row.first().unwrap().to_string();
+                        let row = match TryInto::<Row>::try_into(cell) {
+                            Ok(row) => row,
+                            Err(_) => continue,
+                        };
+                        let row_key = match row.first() {
+                            Some(row_key) => row_key.to_string(),
+                            None => continue,
+                        };
 
                         left_key = match left_key {
                             Some(ref lk) => {
@@ -180,7 +193,9 @@ impl Database {
                                     });
 
                                     indices.extend(rows);
-                                } else if row_key > search_key {
+                                }
+
+                                if *lk == search_key {
                                     break;
                                 }
                                 Some(row_key.clone())

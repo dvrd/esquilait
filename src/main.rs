@@ -50,20 +50,21 @@ fn main() -> Result<()> {
 
     match stmt.columns {
         SelectColumns::Count => {
-            let pgno = NonZeroU64::new(schema.rootpage)
-                .unwrap_or_else(|| panic!("invalid table rootpage: {}", schema.rootpage));
+            let pgno = match NonZeroU64::new(schema.rootpage) {
+                Some(pgno) => pgno,
+                None => bail!("invalid table rootpage: {}", schema.rootpage),
+            };
             let page = db.get_page(pgno)?;
             println!("{}", page.header.cell_count);
-            Ok(())
         }
         _ => {
-            let indices: Vec<usize> = columns.iter().map(|c| c.idx).collect();
-
-            let pgno = NonZeroU64::new(match table_index {
+            let pgno = match NonZeroU64::new(match table_index {
                 Some(pgno) => pgno,
                 None => schema.rootpage,
-            })
-            .unwrap_or_else(|| panic!("invalid index rootpage: {}", schema.rootpage));
+            }) {
+                Some(pgno) => pgno,
+                None => bail!("invalid index rootpage: {}", schema.rootpage),
+            };
 
             let table_search = Search {
                 pgno,
@@ -75,8 +76,9 @@ fn main() -> Result<()> {
 
             let rows = db.rows(table_search);
 
-            print_rows(rows, indices);
-            Ok(())
+            print_rows(rows, columns);
         }
     }
+
+    Ok(())
 }
