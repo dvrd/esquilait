@@ -11,7 +11,9 @@ This project is meant to be a two pronged approach at learning Rust with an actu
 - [x] .schemas
 - [x] base select queries
 - [x] index search
-- [ ] Improve searching speeds
+- [x] Improve searching speeds
+- [x] AND statements
+- [x] Pretty printing of tables
 - [ ] Introduce table joins
 - [ ] Introduce alter tables
 - [ ] Add transactions
