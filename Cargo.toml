@@ -9,5 +9,6 @@ anyhow = "1.0.59"    # error handling
 itertools = "0.10.3" # useful iterator extensions
 nom = "7.0.0"        # for parsing
 peg = "0.7.0"        # for parsing
+prettytable-rs = "0.10.0"
 regex = "1.5.4"      # for parsing
 thiserror = "1.0.32" # error handling

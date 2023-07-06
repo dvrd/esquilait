@@ -69,7 +69,7 @@ impl DatabaseHeader {
             input,
             DatabaseHeader {
                 header_string,
-                page_size,
+                page_size: if page_size == 0 { u16::MAX } else { page_size },
                 file_format_write_version,
                 file_format_read_version,
                 reserved_space,

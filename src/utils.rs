@@ -10,16 +10,15 @@ use crate::{
 };
 
 pub fn find_table_index(
-    cond: &Condition,
+    conds: &Vec<Condition>,
     target: &str,
     table: &Table,
     schemas: &HashMap<String, Schema>,
-) -> (Option<u64>, Option<String>) {
-    match cond {
-        Condition::Eq(col_name, search_key) => {
-            let indexable_col = table.columns.get(col_name);
-            match indexable_col {
-                Some(indexable_col) => {
+) -> Option<(u64, String)> {
+    for cond in conds {
+        let idx_tuple = match cond {
+            Condition::Eq(col_name, search_key) => {
+                if let Some(indexable_col) = table.columns.get(col_name) {
                     let index = schemas
                         .iter()
                         .filter(|(_, s)| s.stype == SchemaType::Index && s.table_name == target)
@@ -32,36 +31,42 @@ pub fn find_table_index(
                         })
                         .map(|(_, s)| s.rootpage);
 
-                    let search_key = match index {
-                        Some(_) => Some(search_key.to_owned()),
-                        None => None,
-                    };
-
-                    (index, search_key)
+                    if let Some(idx) = index {
+                        let sk = search_key.to_owned();
+                        return Some((idx, sk));
+                    }
                 }
-                None => (None, None),
+                None
             }
+        };
+        if idx_tuple.is_some() {
+            return idx_tuple;
         }
     }
+    None
 }
 
 pub fn print_rows(rows: Vec<Row>, columns: Vec<Column>) {
-    println!(
-        "{}",
-        columns
-            .iter()
-            .map(|c| c.name.as_str())
-            .collect::<Vec<&str>>()
-            .join("|")
-    );
-    for row in rows {
-        println!(
-            "{}",
+    use prettytable::{Cell, Row, Table};
+    let mut table = Table::new();
+
+    table.add_row(Row::new(
+        columns.iter().map(|c| Cell::new(c.name.as_str())).collect(),
+    ));
+    for row in rows.clone() {
+        table.add_row(Row::new(
             columns
                 .iter()
-                .map(|c| row[c.idx].to_string())
-                .collect::<Vec<String>>()
-                .join("|")
-        );
+                .map(|c| {
+                    let text = row[c.idx].to_string();
+                    if text.len() > 15 {
+                        return Cell::new(&text[..15]);
+                    }
+                    Cell::new(&text)
+                })
+                .collect(),
+        ));
     }
+    table.printstd();
+    println!("Number of rows: {}", rows.len());
 }

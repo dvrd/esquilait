@@ -36,7 +36,7 @@ impl Condition {
 pub struct Select {
     pub name: String,
     pub columns: SelectColumns,
-    pub cond: Option<Condition>,
+    pub conds: Vec<Condition>,
 }
 
 impl FromStr for Select {
@@ -54,7 +54,7 @@ impl FromStr for Select {
 peg::parser! {
   grammar sql() for str {
     pub rule select() -> Select
-        =  operation() _ columns:columns() _ ("from" / "FROM") _ name:name() _ cond:condition()? {
+        =  operation() _ columns:columns() _ ("from" / "FROM") _ name:name() _ conds:search()? {
             Select {
                 name: name.to_string(),
                 columns: match columns[..] {
@@ -62,7 +62,10 @@ peg::parser! {
                     ["count(*)"] => SelectColumns::Count,
                     _ => SelectColumns::Columns(columns.iter().map(|c| c.to_string()).collect()),
                 },
-                cond: cond.map(|(c, v)| Condition::Eq(c.to_string(), v.to_string()))
+                conds: match conds {
+                    Some(conds) => conds,
+                    None => vec![]
+                }
             }
         }
         / expected!("select")
@@ -98,7 +101,7 @@ peg::parser! {
     rule _() = quiet!{[' ' | '\t' | '\r' | '\n']*}
         / expected!("whitespace")
 
-    rule word() = ['a'..='z' | 'A'..='Z' | '_' ]+
+    rule word() = ['a'..='z' | 'A'..='Z' | '0'..='9' | '.' | '_' ]+
 
     rule name() -> &'input str
         =  quiet!{_ c:$word() { c }}
@@ -110,8 +113,16 @@ peg::parser! {
         / quiet!{['"' | '\''] v:$(word() ** _) ['"' | '\''] { v }}
         / expected!("value")
 
-    rule condition() -> (&'input str, &'input str)
-        =  _ ("WHERE" / "where") _ c:name() _ "=" _ v:value() { (c, v) }
+    rule search() -> Vec<Condition>
+        =  _ ("WHERE" / "where") cond:(condition() ** conditionals()) { cond }
+        / expected!("search")
+
+    rule conditionals() -> ()
+        = quiet!{"AND" / "and" / "OR" / "or"}
+        / expected!("conditionals")
+
+    rule condition() -> Condition
+        = c:name() _ "=" _ v:value() _? { Condition::Eq(c.to_string(), v.to_string())}
         / expected!("condition")
 
     rule operation() -> ()
@@ -182,7 +193,7 @@ peg::parser! {
 pub fn create_idx_sql(s: &str) -> Result<(String, String), anyhow::Error> {
     let create = sql::create_idx(s).or_else(|e| {
         Err(anyhow::anyhow!(
-            "Failed to parse create idx statement: {:?}",
+            "Failed to parse create index statement: {:?}",
             e
         ))
     })?;
@@ -270,7 +281,7 @@ fn test_select() {
         Select {
             name: "apples".to_string(),
             columns: SelectColumns::All,
-            cond: None,
+            conds: vec![],
         },
     );
 
@@ -279,7 +290,7 @@ fn test_select() {
         Select {
             name: "apples".to_string(),
             columns: SelectColumns::All,
-            cond: None,
+            conds: vec![],
         },
     );
 
@@ -288,7 +299,7 @@ fn test_select() {
         Select {
             name: "apples".to_string(),
             columns: SelectColumns::All,
-            cond: None,
+            conds: vec![],
         },
     );
 
@@ -297,7 +308,7 @@ fn test_select() {
         Select {
             name: "apples".to_string(),
             columns: SelectColumns::Count,
-            cond: None,
+            conds: vec![],
         },
     );
 
@@ -306,7 +317,7 @@ fn test_select() {
         Select {
             name: "apples".to_string(),
             columns: SelectColumns::Columns(vec!["name".to_string()]),
-            cond: None,
+            conds: vec![],
         },
     );
 
@@ -315,7 +326,7 @@ fn test_select() {
         Select {
             name: "apples".to_string(),
             columns: SelectColumns::Columns(vec!["name".to_string(), "color".to_string()]),
-            cond: None,
+            conds: vec![],
         },
     );
 
@@ -324,7 +335,7 @@ fn test_select() {
         Select {
             name: "apples".to_string(),
             columns: SelectColumns::Columns(vec!["name".to_string(), "color".to_string()]),
-            cond: None,
+            conds: vec![],
         },
     );
 
@@ -333,10 +344,22 @@ fn test_select() {
         Select {
             name: "people".to_string(),
             columns: SelectColumns::Columns(vec!["name".to_string(), "eye_color".to_string()]),
-            cond: Some(Condition::Eq(
+            conds: vec![Condition::Eq(
                 "eye_color".to_string(),
                 "Dark Red".to_string(),
-            )),
+            )],
+        },
+    );
+
+    assert_select(
+        "select * from apples where name = 'red' and id = 297",
+        Select {
+            name: "apples".to_string(),
+            columns: SelectColumns::All,
+            conds: vec![
+                Condition::Eq("name".to_string(), "red".to_string()),
+                Condition::Eq("id".to_string(), "297".to_string()),
+            ],
         },
     );
 
@@ -345,7 +368,7 @@ fn test_select() {
         Select {
             name: "apples".to_string(),
             columns: SelectColumns::All,
-            cond: Some(Condition::Eq("name".to_string(), "red".to_string())),
+            conds: vec![Condition::Eq("name".to_string(), "red".to_string())],
         },
     );
 }

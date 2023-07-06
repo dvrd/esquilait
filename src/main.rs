@@ -41,38 +41,48 @@ fn main() -> Result<()> {
         Some(s) => (s, s.try_into()?),
         None => bail!("no such table: {}", stmt.name),
     };
-    let columns = table.select(&stmt);
-
-    let (table_index, search_key) = match &stmt.cond {
-        Some(cond) => find_table_index(cond, stmt.name.as_str(), &table, &schemas),
-        None => (None, None),
-    };
 
     match stmt.columns {
         SelectColumns::Count => {
-            let pgno = match NonZeroU64::new(schema.rootpage) {
-                Some(pgno) => pgno,
+            let page = match NonZeroU64::new(schema.rootpage) {
+                Some(pgno) => db.get_page(pgno)?,
                 None => bail!("invalid table rootpage: {}", schema.rootpage),
             };
-            let page = db.get_page(pgno)?;
             println!("{}", page.header.cell_count);
         }
         _ => {
-            let pgno = match NonZeroU64::new(match table_index {
-                Some(pgno) => pgno,
-                None => schema.rootpage,
-            }) {
-                Some(pgno) => pgno,
-                None => bail!("invalid index rootpage: {}", schema.rootpage),
-            };
+            let columns = table.select(&stmt);
 
-            let table_search = Search {
-                pgno,
-                key: search_key,
-                indeces: None,
-                schema: schema.to_owned(),
-                cond: stmt.cond,
-            };
+            let table_search =
+                match find_table_index(&stmt.conds, stmt.name.as_str(), &table, &schemas) {
+                    Some((table_index, search_key)) => {
+                        let pgno = match NonZeroU64::new(table_index) {
+                            Some(pgno) => pgno,
+                            None => bail!("invalid index rootpage: {}", schema.rootpage),
+                        };
+
+                        Search {
+                            pgno,
+                            key: Some(search_key),
+                            indeces: None,
+                            schema: schema.to_owned(),
+                            conds: stmt.conds,
+                        }
+                    }
+                    None => {
+                        let pgno = match NonZeroU64::new(schema.rootpage) {
+                            Some(pgno) => pgno,
+                            None => bail!("invalid index rootpage: {}", schema.rootpage),
+                        };
+                        Search {
+                            pgno,
+                            key: None,
+                            indeces: None,
+                            schema: schema.to_owned(),
+                            conds: stmt.conds,
+                        }
+                    }
+                };
 
             let rows = db.rows(table_search);
 
