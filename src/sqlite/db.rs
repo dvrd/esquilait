@@ -168,8 +168,7 @@ impl Database {
                                     let row_indeces = index_rows
                                         .iter()
                                         .flat_map(|r| {
-                                            let row_id = r.get(1)?;
-                                            let row_id = TryInto::<u64>::try_into(*row_id).ok()?;
+                                            let row_id = r.get(1)?.clone().into();
                                             Some(row_id)
                                         })
                                         .collect::<Vec<u64>>();

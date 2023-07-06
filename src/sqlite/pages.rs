@@ -9,7 +9,8 @@ use nom::{
 use std::ops::Deref;
 
 use crate::parsers::{
-    cells::{Cell, CellIter, Payload},
+    cells::{Cell, CellIter},
+    payload::Payload,
     varint::varint,
 };
 

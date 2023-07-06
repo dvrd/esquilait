@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use crate::sqlite::tables::{CellType, Column, Table};
 
-use super::records::Value;
+use super::value::Value;
 
 #[derive(Debug, PartialEq)]
 pub enum SelectColumns {
