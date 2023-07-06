@@ -15,11 +15,7 @@ use super::{
     schemas::Schema,
     tables::Table,
 };
-use crate::parsers::{
-    cells::{self, Cell},
-    records::Value,
-    sql::Condition,
-};
+use crate::parsers::{cells::Cell, sql::Condition, value::Value};
 
 pub type Row = Vec<Value>;
 
@@ -107,8 +103,6 @@ impl Database {
                 PageKind::TableInterior => {
                     let mut rows: Vec<Row> = vec![];
 
-                    let cells = page.cells();
-
                     if let Some(rightmost_pointer) = page.header.rightmost_pointer {
                         if let Some(rightmost_pointer) = NonZeroU64::new(rightmost_pointer.into()) {
                             rows.extend(self.rows(search.next_page(rightmost_pointer)));
@@ -140,10 +134,11 @@ impl Database {
                 PageKind::IndexInterior => {
                     let mut indices = vec![];
 
-                    let search_key = match search.key.clone() {
-                        Some(key) => key,
-                        None => return vec![],
-                    };
+                    let (search_key, pgno) =
+                        match (search.key.clone(), NonZeroU64::new(search.schema.rootpage)) {
+                            (Some(key), Some(pgno)) => (key, pgno),
+                            _ => return vec![],
+                        };
 
                     let mut left_key: Option<String> = None;
 
@@ -170,14 +165,14 @@ impl Database {
                                         index_rows.push(row);
                                     }
 
-                                    let pgno = NonZeroU64::new(search.schema.rootpage).unwrap();
-                                    let row_indeces: Vec<u64> = index_rows
+                                    let row_indeces = index_rows
                                         .iter()
                                         .flat_map(|r| {
-                                            let row_id: u64 = r.get(1)?.clone().into();
+                                            let row_id = r.get(1)?;
+                                            let row_id = TryInto::<u64>::try_into(*row_id).ok()?;
                                             Some(row_id)
                                         })
-                                        .collect();
+                                        .collect::<Vec<u64>>();
 
                                     if row_indeces.iter().sum::<u64>() == 0 {
                                         indices.extend(index_rows);
