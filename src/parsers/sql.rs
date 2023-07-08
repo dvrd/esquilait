@@ -275,7 +275,7 @@ fn test_create() {
 }
 
 #[test]
-fn test_select() {
+fn test_select_all_lowercase() {
     assert_select(
         "select * from apples",
         Select {
@@ -284,7 +284,10 @@ fn test_select() {
             conds: vec![],
         },
     );
+}
 
+#[test]
+fn test_select_all_uppercase() {
     assert_select(
         "SELECT * FROM apples",
         Select {
@@ -293,7 +296,10 @@ fn test_select() {
             conds: vec![],
         },
     );
+}
 
+#[test]
+fn test_select_all_different_case() {
     assert_select(
         "select * FROM apples",
         Select {
@@ -302,7 +308,10 @@ fn test_select() {
             conds: vec![],
         },
     );
+}
 
+#[test]
+fn test_count_rows() {
     assert_select(
         "SELECT count(*) FROM apples",
         Select {
@@ -311,7 +320,10 @@ fn test_select() {
             conds: vec![],
         },
     );
+}
 
+#[test]
+fn test_select_col() {
     assert_select(
         "SELECT name FROM apples",
         Select {
@@ -320,7 +332,10 @@ fn test_select() {
             conds: vec![],
         },
     );
+}
 
+#[test]
+fn test_select_cols_without_space_after_comma() {
     assert_select(
         "SELECT name,color FROM apples",
         Select {
@@ -329,7 +344,10 @@ fn test_select() {
             conds: vec![],
         },
     );
+}
 
+#[test]
+fn test_select_cols_with_space_after_comma() {
     assert_select(
         "SELECT name, color FROM apples",
         Select {
@@ -338,7 +356,22 @@ fn test_select() {
             conds: vec![],
         },
     );
+}
 
+#[test]
+fn test_select_where() {
+    assert_select(
+        "SELECT * FROM apples WHERE name = 'red'",
+        Select {
+            name: "apples".to_string(),
+            columns: SelectColumns::All,
+            conds: vec![Condition::Eq("name".to_string(), "red".to_string())],
+        },
+    );
+}
+
+#[test]
+fn test_select_cols_where() {
     assert_select(
         "SELECT name, eye_color FROM people WHERE eye_color = 'Dark Red'",
         Select {
@@ -350,7 +383,10 @@ fn test_select() {
             )],
         },
     );
+}
 
+#[test]
+fn test_select_where_and() {
     assert_select(
         "select * from apples where name = 'red' and id = 297",
         Select {
@@ -360,15 +396,6 @@ fn test_select() {
                 Condition::Eq("name".to_string(), "red".to_string()),
                 Condition::Eq("id".to_string(), "297".to_string()),
             ],
-        },
-    );
-
-    assert_select(
-        "SELECT * FROM apples WHERE name = 'red'",
-        Select {
-            name: "apples".to_string(),
-            columns: SelectColumns::All,
-            conds: vec![Condition::Eq("name".to_string(), "red".to_string())],
         },
     );
 }

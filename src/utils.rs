@@ -46,6 +46,13 @@ pub fn find_table_index(
     None
 }
 
+fn truncate(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars) {
+        None => s,
+        Some((idx, _)) => &s[..idx],
+    }
+}
+
 pub fn print_rows(rows: Vec<Row>, columns: Vec<Column>) {
     use prettytable::{Cell, Row, Table};
     let mut table = Table::new();
@@ -59,8 +66,10 @@ pub fn print_rows(rows: Vec<Row>, columns: Vec<Column>) {
                 .iter()
                 .map(|c| {
                     let text = row[c.idx].to_string();
-                    if text.len() > 15 {
-                        return Cell::new(&text[..15]);
+                    if text.len() > 10 {
+                        let text = truncate(&text, 10);
+                        let text = text.to_string() + "...";
+                        return Cell::new(&text[..]);
                     }
                     Cell::new(&text)
                 })
