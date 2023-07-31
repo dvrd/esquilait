@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use core::fmt;
-
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -29,6 +28,21 @@ pub struct Search {
 }
 
 impl Search {
+    pub fn new(
+        pgno: NonZeroU64,
+        key: Option<String>,
+        indeces: Option<Vec<u64>>,
+        schema: Schema,
+        conds: Vec<Condition>,
+    ) -> Self {
+        Search {
+            pgno,
+            key,
+            indeces,
+            schema,
+            conds,
+        }
+    }
     pub fn next_page(&self, pgno: NonZeroU64) -> Self {
         Self {
             pgno,
@@ -102,6 +116,7 @@ impl Database {
             Ok(page) => match &page.header.kind {
                 PageKind::TableInterior => {
                     let mut rows: Vec<Row> = vec![];
+                    println!("START | at {} - rows length: {}", search.pgno, rows.len());
 
                     for cell in page.cells() {
                         let cell_rows = match cell.next_page().map(|pgno| search.next_page(pgno)) {
@@ -125,6 +140,7 @@ impl Database {
                             rows.extend(self.rows(search.next_page(rightmost_pointer)));
                         }
                     }
+                    println!("END | at {} - rows length: {}", search.pgno, rows.len());
 
                     rows
                 }

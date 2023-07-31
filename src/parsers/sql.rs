@@ -5,7 +5,7 @@ use crate::sqlite::tables::{CellType, Column, Table};
 
 use super::value::Value;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SelectColumns {
     Columns(Vec<String>),
     All,
@@ -15,9 +15,25 @@ pub enum SelectColumns {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Condition {
     Eq(String, String),
+    Gt(String, String),
+    Ge(String, String),
+    Lt(String, String),
+    Le(String, String),
+    Ne(String, String),
 }
 
 impl Condition {
+    pub fn unbox(&self) -> (&String, &String) {
+        match self {
+            Condition::Eq(col_name, val) => (col_name, val),
+            Condition::Gt(col_name, val) => (col_name, val),
+            Condition::Ge(col_name, val) => (col_name, val),
+            Condition::Lt(col_name, val) => (col_name, val),
+            Condition::Le(col_name, val) => (col_name, val),
+            Condition::Ne(col_name, val) => (col_name, val),
+        }
+    }
+
     pub fn eval(&self, row: &Vec<Value>, columns: &HashMap<String, Column>) -> bool {
         match self {
             Condition::Eq(col_name, val) => {
@@ -28,11 +44,51 @@ impl Condition {
                 }
                 false
             }
+            Condition::Ge(col_name, val) => {
+                if let Some(column) = columns.get(col_name) {
+                    if row[column.idx].to_string() >= val.to_string() {
+                        return true;
+                    }
+                }
+                false
+            }
+            Condition::Gt(col_name, val) => {
+                if let Some(column) = columns.get(col_name) {
+                    if row[column.idx].to_string() > val.to_string() {
+                        return true;
+                    }
+                }
+                false
+            }
+            Condition::Le(col_name, val) => {
+                if let Some(column) = columns.get(col_name) {
+                    if row[column.idx].to_string() <= val.to_string() {
+                        return true;
+                    }
+                }
+                false
+            }
+            Condition::Lt(col_name, val) => {
+                if let Some(column) = columns.get(col_name) {
+                    if row[column.idx].to_string() < val.to_string() {
+                        return true;
+                    }
+                }
+                false
+            }
+            Condition::Ne(col_name, val) => {
+                if let Some(column) = columns.get(col_name) {
+                    if row[column.idx].to_string() != val.to_string() {
+                        return true;
+                    }
+                }
+                false
+            }
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Select {
     pub name: String,
     pub columns: SelectColumns,
@@ -122,7 +178,14 @@ peg::parser! {
         / expected!("conditionals")
 
     rule condition() -> Condition
-        = c:name() _ "=" _ v:value() _? { Condition::Eq(c.to_string(), v.to_string())}
+        = quiet!{
+            c:name() _ "=" _ v:value() _? { Condition::Eq(c.to_string(), v.to_string()) }
+            / c:name() _ ">=" _ v:value() _? { Condition::Ge(c.to_string(), v.to_string()) }
+            / c:name() _ ">" _ v:value() _? { Condition::Gt(c.to_string(), v.to_string()) }
+            / c:name() _ "<=" _ v:value() _? { Condition::Le(c.to_string(), v.to_string()) }
+            / c:name() _ "<" _ v:value() _? { Condition::Lt(c.to_string(), v.to_string()) }
+            / c:name() _ "!=" _ v:value() _? { Condition::Ne(c.to_string(), v.to_string()) }
+        }
         / expected!("condition")
 
     rule operation() -> ()
@@ -395,6 +458,21 @@ fn test_select_where_and() {
             conds: vec![
                 Condition::Eq("name".to_string(), "red".to_string()),
                 Condition::Eq("id".to_string(), "297".to_string()),
+            ],
+        },
+    );
+}
+
+#[test]
+fn test_select_where_more_than() {
+    assert_select(
+        "select * from apples where name = 'red' and id > 297",
+        Select {
+            name: "apples".to_string(),
+            columns: SelectColumns::All,
+            conds: vec![
+                Condition::Eq("name".to_string(), "red".to_string()),
+                Condition::Gt("id".to_string(), "297".to_string()),
             ],
         },
     );

@@ -1,3 +1,4 @@
+use colored::Colorize;
 use std::collections::HashMap;
 
 use crate::{
@@ -16,32 +17,25 @@ pub fn find_table_index(
     schemas: &HashMap<String, Schema>,
 ) -> Option<(u64, String)> {
     for cond in conds {
-        let idx_tuple = match cond {
-            Condition::Eq(col_name, search_key) => {
-                if let Some(indexable_col) = table.columns.get(col_name) {
-                    let index = schemas
-                        .iter()
-                        .filter(|(_, s)| s.stype == SchemaType::Index && s.table_name == target)
-                        .find(|(_, s)| {
-                            let column = match create_idx_sql(&s.sql) {
-                                Ok((_, column)) => column,
-                                Err(_) => return false,
-                            };
-                            column == indexable_col.name
-                        })
-                        .map(|(_, s)| s.rootpage);
+        let (col_name, search_key) = cond.unbox();
+        if let Some(indexable_col) = table.columns.get(col_name) {
+            let index = schemas
+                .iter()
+                .filter(|(_, s)| s.stype == SchemaType::Index && s.table_name == target)
+                .find(|(_, s)| {
+                    let column = match create_idx_sql(&s.sql) {
+                        Ok((_, column)) => column,
+                        Err(_) => return false,
+                    };
+                    column == indexable_col.name
+                })
+                .map(|(_, s)| s.rootpage);
 
-                    if let Some(idx) = index {
-                        let sk = search_key.to_owned();
-                        return Some((idx, sk));
-                    }
-                }
-                None
+            if let Some(idx) = index {
+                let sk = search_key.to_owned();
+                return Some((idx, sk));
             }
         };
-        if idx_tuple.is_some() {
-            return idx_tuple;
-        }
     }
     None
 }
@@ -66,7 +60,7 @@ pub fn print_rows(rows: Vec<Row>, columns: Vec<Column>) {
                 .iter()
                 .map(|c| {
                     let text = row[c.idx].to_string();
-                    if text.len() > 10 {
+                    if text.len() > 10 && columns.len() > 4 {
                         let text = truncate(&text, 10);
                         let text = text.to_string() + "...";
                         return Cell::new(&text[..]);
@@ -78,4 +72,16 @@ pub fn print_rows(rows: Vec<Row>, columns: Vec<Column>) {
     }
     table.printstd();
     println!("Number of rows: {}", rows.len());
+}
+
+pub fn log(msg: &str) {
+    eprintln!("{} {}", "∆".blue(), msg.blue());
+}
+
+pub fn elog(msg: &str) {
+    eprintln!("{} {}", "∆(e)".red(), msg.red());
+}
+
+pub fn wlog(msg: &str) {
+    eprintln!("{} {}", "∆(w)".yellow(), msg.yellow());
 }
