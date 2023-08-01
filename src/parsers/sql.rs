@@ -15,22 +15,24 @@ pub enum SelectColumns {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Condition {
     Eq(String, String),
-    Gt(String, String),
-    Ge(String, String),
-    Lt(String, String),
-    Le(String, String),
+    Greater(String, String),
+    GreaterEq(String, String),
+    Less(String, String),
+    LessEq(String, String),
     Ne(String, String),
+    Between(String, String, String),
 }
 
 impl Condition {
     pub fn unbox(&self) -> (&String, &String) {
         match self {
             Condition::Eq(col_name, val) => (col_name, val),
-            Condition::Gt(col_name, val) => (col_name, val),
-            Condition::Ge(col_name, val) => (col_name, val),
-            Condition::Lt(col_name, val) => (col_name, val),
-            Condition::Le(col_name, val) => (col_name, val),
+            Condition::Greater(col_name, val) => (col_name, val),
+            Condition::GreaterEq(col_name, val) => (col_name, val),
+            Condition::Less(col_name, val) => (col_name, val),
+            Condition::LessEq(col_name, val) => (col_name, val),
             Condition::Ne(col_name, val) => (col_name, val),
+            Condition::Between(col_name, from, _) => (col_name, from), // TODO: Handle this case
         }
     }
 
@@ -38,44 +40,169 @@ impl Condition {
         match self {
             Condition::Eq(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    let comparison = row[column.idx].to_string().cmp(val);
-                    return comparison == Ordering::Equal;
+                    return match &row[column.idx] {
+                        Value::Integer(n) => {
+                            if let Ok(val) = val.parse::<i64>() {
+                                return *n == val;
+                            }
+                            false
+                        }
+                        Value::Text(t) => t.cmp(val) == Ordering::Equal,
+                        Value::Float(f) => {
+                            if let Ok(val) = val.parse::<f64>() {
+                                return *f == val;
+                            }
+                            false
+                        }
+                        Value::Null => val == "NULL",
+                        Value::Blob(_) => false,
+                    };
+                }
+
+                false
+            }
+            Condition::GreaterEq(col_name, val) => {
+                if let Some(column) = columns.get(col_name) {
+                    return match &row[column.idx] {
+                        Value::Integer(n) => {
+                            if let Ok(val) = val.parse::<i64>() {
+                                return *n >= val;
+                            }
+                            false
+                        }
+                        Value::Text(t) => {
+                            let comparison = t.cmp(val);
+                            comparison == Ordering::Greater || comparison == Ordering::Equal
+                        }
+                        Value::Float(f) => {
+                            if let Ok(val) = val.parse::<f64>() {
+                                return *f >= val;
+                            }
+                            false
+                        }
+                        Value::Null => val == "NULL",
+                        Value::Blob(_) => false,
+                    };
+                }
+
+                false
+            }
+            Condition::Greater(col_name, val) => {
+                if let Some(column) = columns.get(col_name) {
+                    return match &row[column.idx] {
+                        Value::Integer(n) => {
+                            if let Ok(val) = val.parse::<i64>() {
+                                return *n > val;
+                            }
+                            false
+                        }
+                        Value::Text(t) => t.cmp(val) == Ordering::Greater,
+                        Value::Float(f) => {
+                            if let Ok(val) = val.parse::<f64>() {
+                                return *f > val;
+                            }
+                            false
+                        }
+                        Value::Null => val == "NULL",
+                        Value::Blob(_) => false,
+                    };
                 }
                 false
             }
-            Condition::Ge(col_name, val) => {
+            Condition::LessEq(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    let comparison = row[column.idx].to_string().cmp(val);
-                    return comparison == Ordering::Greater || comparison == Ordering::Equal;
+                    return match &row[column.idx] {
+                        Value::Integer(n) => {
+                            if let Ok(val) = val.parse::<i64>() {
+                                return *n <= val;
+                            }
+                            false
+                        }
+                        Value::Text(t) => {
+                            let comparison = t.cmp(val);
+                            comparison == Ordering::Less || comparison == Ordering::Equal
+                        }
+                        Value::Float(f) => {
+                            if let Ok(val) = val.parse::<f64>() {
+                                return *f <= val;
+                            }
+                            false
+                        }
+                        Value::Null => val == "NULL",
+                        Value::Blob(_) => false,
+                    };
                 }
+
                 false
             }
-            Condition::Gt(col_name, val) => {
+            Condition::Less(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    let comparison = row[column.idx].to_string().cmp(val);
-                    return comparison == Ordering::Less;
-                }
-                false
-            }
-            Condition::Le(col_name, val) => {
-                if let Some(column) = columns.get(col_name) {
-                    let comparison = row[column.idx].to_string().cmp(val);
-                    return comparison == Ordering::Less || comparison == Ordering::Equal;
-                }
-                false
-            }
-            Condition::Lt(col_name, val) => {
-                if let Some(column) = columns.get(col_name) {
-                    let comparison = row[column.idx].to_string().cmp(val);
-                    return comparison == Ordering::Less;
+                    return match &row[column.idx] {
+                        Value::Integer(n) => {
+                            if let Ok(val) = val.parse::<i64>() {
+                                return *n < val;
+                            }
+                            false
+                        }
+                        Value::Text(t) => t.cmp(val) == Ordering::Less,
+                        Value::Float(f) => {
+                            if let Ok(val) = val.parse::<f64>() {
+                                return *f < val;
+                            }
+                            false
+                        }
+                        Value::Null => val == "NULL",
+                        Value::Blob(_) => false,
+                    };
                 }
                 false
             }
             Condition::Ne(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    let comparison = row[column.idx].to_string().cmp(val);
-                    return comparison != Ordering::Equal;
+                    return match &row[column.idx] {
+                        Value::Integer(n) => {
+                            if let Ok(val) = val.parse::<i64>() {
+                                return *n != val;
+                            }
+                            false
+                        }
+                        Value::Text(t) => t.cmp(val) != Ordering::Equal,
+                        Value::Float(f) => {
+                            if let Ok(val) = val.parse::<f64>() {
+                                return *f != val;
+                            }
+                            false
+                        }
+                        Value::Null => val == "NULL",
+                        Value::Blob(_) => false,
+                    };
                 }
+
+                false
+            }
+            Condition::Between(col_name, from, to) => {
+                if let Some(column) = columns.get(col_name) {
+                    return match &row[column.idx] {
+                        Value::Integer(n) => {
+                            if let (Ok(from), Ok(to)) = (from.parse::<i64>(), to.parse::<i64>()) {
+                                return *n >= from && *n <= to;
+                            }
+                            false
+                        }
+                        Value::Text(t) => {
+                            (t.cmp(from) == Ordering::Greater || t.cmp(from) == Ordering::Equal)
+                                && (t.cmp(to) == Ordering::Less || t.cmp(to) == Ordering::Equal)
+                        }
+                        Value::Float(f) => {
+                            if let (Ok(from), Ok(to)) = (from.parse::<f64>(), to.parse::<f64>()) {
+                                return *f >= from && *f <= to;
+                            }
+                            false
+                        }
+                        _ => false,
+                    };
+                }
+
                 false
             }
         }
@@ -174,11 +301,14 @@ peg::parser! {
     rule condition() -> Condition
         = quiet!{
             c:name() _ "=" _ v:value() _? { Condition::Eq(c.to_string(), v.to_string()) }
-            / c:name() _ ">=" _ v:value() _? { Condition::Ge(c.to_string(), v.to_string()) }
-            / c:name() _ ">" _ v:value() _? { Condition::Gt(c.to_string(), v.to_string()) }
-            / c:name() _ "<=" _ v:value() _? { Condition::Le(c.to_string(), v.to_string()) }
-            / c:name() _ "<" _ v:value() _? { Condition::Lt(c.to_string(), v.to_string()) }
+            / c:name() _ ">=" _ v:value() _? { Condition::GreaterEq(c.to_string(), v.to_string()) }
+            / c:name() _ ">" _ v:value() _? { Condition::Greater(c.to_string(), v.to_string()) }
+            / c:name() _ "<=" _ v:value() _? { Condition::LessEq(c.to_string(), v.to_string()) }
+            / c:name() _ "<" _ v:value() _? { Condition::Less(c.to_string(), v.to_string()) }
             / c:name() _ "!=" _ v:value() _? { Condition::Ne(c.to_string(), v.to_string()) }
+            / c:name() _ ("BETWEEN" / "between") _ f:value() _ ("AND" / "and") _ t:value() _? {
+                Condition::Between(c.to_string(), f.to_string(), t.to_string())
+            }
         }
         / expected!("condition")
 
@@ -466,7 +596,7 @@ fn test_select_where_more_than() {
             columns: SelectColumns::All,
             conds: vec![
                 Condition::Eq("name".to_string(), "red".to_string()),
-                Condition::Gt("id".to_string(), "297".to_string()),
+                Condition::Greater("id".to_string(), "297".to_string()),
             ],
         },
     );
