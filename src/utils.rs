@@ -75,13 +75,13 @@ pub fn print_rows(rows: Vec<Row>, columns: Vec<Column>) {
 }
 
 pub fn log(msg: &str) {
-    eprintln!("{} {}", "∆".blue(), msg.blue());
+    eprint!("{} {}", "∆".blue(), msg.blue());
 }
 
 pub fn elog(msg: &str) {
-    eprintln!("{} {}", "∆(e)".red(), msg.red());
+    eprint!("{} {}", "∆(e)".red(), msg.red());
 }
 
 pub fn wlog(msg: &str) {
-    eprintln!("{} {}", "∆(w)".yellow(), msg.yellow());
+    eprint!("{} {}", "∆(w)".yellow(), msg.yellow());
 }

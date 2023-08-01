@@ -19,6 +19,7 @@ pub enum Command {
     Error(String),
     History,
     Unknown,
+    Utility(String),
     Quit,
 }
 
@@ -26,13 +27,17 @@ fn get_extension_from_filename(filename: &str) -> Option<&str> {
     Path::new(filename).extension().and_then(OsStr::to_str)
 }
 
-impl From<String> for Command {
-    fn from(value: String) -> Self {
+static SHELL_TERMS: [&str; 3] = ["ls", "pwd", "clear"];
+static QUIT_TERMS: [&str; 4] = ["quit", "q", "Q", "QUIT"];
+
+impl From<&mut String> for Command {
+    fn from(value: &mut String) -> Self {
         let words: Vec<_> = value.split_whitespace().collect();
 
         match words.as_slice() {
-            [word] if word.starts_with(".") => Command::Dot(value),
-            [word] if *word == "quit" || *word == "q" => Command::Quit,
+            [word] if word.starts_with(".") => Command::Dot(word.to_string()),
+            [word] if QUIT_TERMS.contains(word) => Command::Quit,
+            [word] if SHELL_TERMS.contains(word) => Command::Utility(word.to_string()),
             _ if value == "\u{b}\n" => Command::History, // Ctrl + k
             [cmd, path] if *cmd == "load" => match get_extension_from_filename(path) {
                 Some(ext) if ext == "db" => Command::Load(path.to_string()),

@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.59"    # error handling
 colored = "2.0.4"
+console = "0.15.7"
 itertools = "0.10.3" # useful iterator extensions
 nom = "7.0.0"        # for parsing
 peg = "0.7.0"        # for parsing

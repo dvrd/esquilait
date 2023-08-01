@@ -1,9 +1,6 @@
 use anyhow::Result;
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{self, Stdin, Stdout},
-};
+use console::Term;
+use std::{fs::File, io::Write, process};
 
 use crate::{
     dot_commands::handle_dot_commands,
@@ -14,24 +11,39 @@ use crate::{
 
 pub struct App {
     pub is_running: bool,
-    pub stdin: Stdin,
-    pub stdout: Stdout,
+    pub term: Term,
     pub db: Option<Database>,
-    pub history: Vec<Command>,
+    pub history: Vec<String>,
 }
 
 impl App {
     pub fn new() -> Self {
         App {
             db: None,
-            stdin: io::stdin(),
-            stdout: io::stdout(),
+            term: Term::stdout(),
             is_running: true,
             history: vec![],
         }
     }
 
-    fn previous_command(&mut self) -> Option<Command> {
+    pub fn delete(&mut self, input: &mut String) -> Result<()> {
+        if !input.is_empty() {
+            input.pop();
+            self.term.clear_chars(input.len().saturating_add(1))?;
+            self.term.write(format!("{input}").as_bytes())?;
+            self.term.flush()?;
+        }
+        Ok(())
+    }
+
+    pub fn write(&mut self, input: &mut String) -> Result<()> {
+        self.term.clear_chars(input.len().saturating_sub(1))?;
+        self.term.write(format!("{input}").as_bytes())?;
+        self.term.flush()?;
+        Ok(())
+    }
+
+    pub fn previous_command(&mut self) -> Option<String> {
         self.history.pop()
     }
 
@@ -40,7 +52,6 @@ impl App {
             Command::Dot(cmd) => match self.db.as_ref() {
                 Some(db) => {
                     handle_dot_commands(cmd, db);
-                    self.history.push(command);
                 }
                 None => elog("Please, load a database first"),
             },
@@ -49,7 +60,6 @@ impl App {
                     Ok(db) => {
                         log(format!("Sucessfully loaded {path}").as_str());
                         self.db = Some(db);
-                        self.history.push(command);
                     }
                     Err(msg) => elog(format!("! {msg}").as_str()),
                 },
@@ -59,8 +69,6 @@ impl App {
                 Some(db) => {
                     if let Err(msg) = repl::run(cmd, db) {
                         self.router(Command::Error(msg.to_string()))?
-                    } else {
-                        self.history.push(command);
                     }
                 }
                 None => elog("Please, load a database first"),
@@ -75,6 +83,9 @@ impl App {
                 }
                 None => wlog("No previous commands"),
             },
+            Command::Utility(shell) => {
+                process::Command::new(shell).status()?;
+            }
         };
 
         Ok(())

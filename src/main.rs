@@ -6,29 +6,49 @@ mod sqlite;
 mod utils;
 
 use anyhow::Result;
+use console::Key;
+use std::io::Write;
 
 use app::App;
 use repl::Command;
 
-use std::io::{BufRead, Write};
-
 fn main() -> Result<()> {
     let mut app = App::new();
-    let input = &mut String::new();
+    let mut input = String::new();
+    let mut next;
 
     while app.is_running {
         input.clear();
-        print!("> ");
+        next = false;
+        app.term.write("\n> ".as_bytes())?;
 
-        app.stdout.flush()?;
-
-        let mut handle = app.stdin.lock();
-
-        handle.read_line(input)?;
-
-        let command = Command::from(input.clone());
-
-        app.router(command)?;
+        while !next {
+            match app.term.read_key()? {
+                Key::Enter => {
+                    next = true;
+                    app.history.push(input.clone());
+                    let command = Command::from(&mut input);
+                    println!();
+                    app.router(command)?;
+                }
+                Key::Backspace => {
+                    app.delete(&mut input)?;
+                }
+                Key::ArrowUp => {
+                    if let Some(cmd) = app.previous_command() {
+                        input = cmd;
+                        app.write(&mut format!("> {input}"))?
+                    };
+                }
+                Key::Char(key) => {
+                    if key != '\u{b}' {
+                        input.push(key);
+                        app.write(&mut input)?;
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     Ok(())
