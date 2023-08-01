@@ -116,8 +116,6 @@ impl Database {
             Ok(page) => match &page.header.kind {
                 PageKind::TableInterior => {
                     let mut rows: Vec<Row> = vec![];
-                    println!("START | at {} - rows length: {}", search.pgno, rows.len());
-
                     for cell in page.cells() {
                         let cell_rows = match cell.next_page().map(|pgno| search.next_page(pgno)) {
                             Some(next_search) => {
@@ -140,7 +138,6 @@ impl Database {
                             rows.extend(self.rows(search.next_page(rightmost_pointer)));
                         }
                     }
-                    println!("END | at {} - rows length: {}", search.pgno, rows.len());
 
                     rows
                 }

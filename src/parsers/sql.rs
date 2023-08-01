@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::str::FromStr;
+use std::{cmp::Ordering, collections::HashMap};
 
 use crate::sqlite::tables::{CellType, Column, Table};
 
@@ -38,49 +38,43 @@ impl Condition {
         match self {
             Condition::Eq(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    if val.to_string() == row[column.idx].to_string() {
-                        return true;
-                    }
+                    let comparison = row[column.idx].to_string().cmp(val);
+                    return comparison == Ordering::Equal;
                 }
                 false
             }
             Condition::Ge(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    if row[column.idx].to_string() >= val.to_string() {
-                        return true;
-                    }
+                    let comparison = row[column.idx].to_string().cmp(val);
+                    return comparison == Ordering::Greater || comparison == Ordering::Equal;
                 }
                 false
             }
             Condition::Gt(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    if row[column.idx].to_string() > val.to_string() {
-                        return true;
-                    }
+                    let comparison = row[column.idx].to_string().cmp(val);
+                    return comparison == Ordering::Less;
                 }
                 false
             }
             Condition::Le(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    if row[column.idx].to_string() <= val.to_string() {
-                        return true;
-                    }
+                    let comparison = row[column.idx].to_string().cmp(val);
+                    return comparison == Ordering::Less || comparison == Ordering::Equal;
                 }
                 false
             }
             Condition::Lt(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    if row[column.idx].to_string() < val.to_string() {
-                        return true;
-                    }
+                    let comparison = row[column.idx].to_string().cmp(val);
+                    return comparison == Ordering::Less;
                 }
                 false
             }
             Condition::Ne(col_name, val) => {
                 if let Some(column) = columns.get(col_name) {
-                    if row[column.idx].to_string() != val.to_string() {
-                        return true;
-                    }
+                    let comparison = row[column.idx].to_string().cmp(val);
+                    return comparison != Ordering::Equal;
                 }
                 false
             }

@@ -5,50 +5,25 @@ mod repl;
 mod sqlite;
 mod utils;
 
-use anyhow::Result;
-use console::Key;
-use std::io::Write;
+use anyhow::{bail, Result};
 
 use app::App;
 use repl::Command;
 
 fn main() -> Result<()> {
-    let mut app = App::new();
-    let mut input = String::new();
-    let mut next;
+    let args = std::env::args().collect::<Vec<_>>();
 
-    while app.is_running {
-        input.clear();
-        next = false;
-        app.term.write("\n> ".as_bytes())?;
-
-        while !next {
-            match app.term.read_key()? {
-                Key::Enter => {
-                    next = true;
-                    app.history.push(input.clone());
-                    let command = Command::from(&mut input);
-                    println!();
-                    app.router(command)?;
-                }
-                Key::Backspace => {
-                    app.delete(&mut input)?;
-                }
-                Key::ArrowUp => {
-                    if let Some(cmd) = app.previous_command() {
-                        input = cmd;
-                        app.write(&mut format!("> {input}"))?
-                    };
-                }
-                Key::Char(key) => {
-                    if key != '\u{b}' {
-                        input.push(key);
-                        app.write(&mut input)?;
-                    }
-                }
-                _ => {}
-            }
+    match args.len() {
+        2 => bail!("Missing <command>"),
+        3 => {
+            let mut app = App::new();
+            let db_file_path = args[1].to_string();
+            app.router(Command::Load(db_file_path))?;
+            println!();
+            let stmt = args[2].parse()?;
+            app.router(Command::Sql(stmt))?;
         }
+        _ => repl::start()?,
     }
 
     Ok(())

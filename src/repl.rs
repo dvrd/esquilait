@@ -1,8 +1,11 @@
 use anyhow::{bail, Result};
+use console::Key;
 use std::ffi::OsStr;
+use std::io::Write;
 use std::num::NonZeroU64;
 use std::path::Path;
 
+use crate::app::App;
 use crate::parsers::sql::{Select, SelectColumns};
 use crate::sqlite::{
     db::{Database, Search},
@@ -41,7 +44,7 @@ impl From<&mut String> for Command {
             _ if value == "\u{b}\n" => Command::History, // Ctrl + k
             [cmd, path] if *cmd == "load" => match get_extension_from_filename(path) {
                 Some(ext) if ext == "db" => Command::Load(path.to_string()),
-                _ => Command::Error("File {path} extension extraction failed".to_string()),
+                _ => Command::Error(format!("File \"{path}\" extension extraction failed")),
             },
             [cmd, stmt @ ..] if *cmd == "sql" => match stmt.join(" ").parse() {
                 Ok(stmt) => Command::Sql(stmt),
@@ -94,5 +97,46 @@ pub fn run(stmt: Select, db: &Database) -> Result<()> {
         }
     };
 
+    Ok(())
+}
+
+pub fn start() -> Result<()> {
+    let mut app = App::new();
+    let mut input = String::new();
+    let mut next;
+
+    while app.is_running {
+        input.clear();
+        next = false;
+        app.term.write("\n> ".as_bytes())?;
+
+        while !next {
+            match app.term.read_key()? {
+                Key::Enter => {
+                    next = true;
+                    app.history.push(input.clone());
+                    let command = Command::from(&mut input);
+                    println!();
+                    app.router(command)?;
+                }
+                Key::Backspace => {
+                    app.delete(&mut input)?;
+                }
+                Key::ArrowUp => {
+                    if let Some(cmd) = app.previous_command() {
+                        input = cmd;
+                        app.write(&mut format!("> {input}"))?
+                    };
+                }
+                Key::Char(key) => {
+                    if key != '\u{b}' {
+                        input.push(key);
+                        app.write(&mut input)?;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
     Ok(())
 }
